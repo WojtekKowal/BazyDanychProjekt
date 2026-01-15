@@ -1,7 +1,6 @@
-
 CREATE TABLE Atrakcje
 (
-  id_atrakcji                INT           NOT NULL,
+  id_atrakcji                INT           NOT NULL AUTO_INCREMENT,
   nazwa_atrakcji             VARCHAR(50)   NULL    ,
   data_przegladu             DATE          NULL     COMMENT 'ostatni wykonany',
   data_nastepnego_przegladu  DATE          NULL     COMMENT 'nastepna, nie musi być w stałym odstępie',
@@ -13,7 +12,7 @@ CREATE TABLE Atrakcje
 
 CREATE TABLE Awarie
 (
-  id_zgloszenia            INT           NOT NULL,
+  id_zgloszenia            INT           NOT NULL AUTO_INCREMENT,
   id_atrakcji              INT           NOT NULL,
   data_zgloszenia          DATE          NULL    ,
   data_zakonczenia_naprawy DATE          NULL    ,
@@ -23,16 +22,17 @@ CREATE TABLE Awarie
 
 CREATE TABLE Bilety
 (
-  id_biletu     INT          NOT NULL,
-  rodzaj_biletu VARCHAR(40)  NOT NULL,
-  na_miejscu    BOOL         NULL    ,
-  cena          DECIMAL(7,2) NOT NULL,
+  id_biletu               INT          NOT NULL AUTO_INCREMENT,
+  rodzaj_biletu           VARCHAR(40)  NOT NULL,
+  na_miejscu              BOOL         NULL    ,
+  cena                    DECIMAL(7,2) NOT NULL,
+  okres_waznosci_w_dniach INT          NULL    ,
   PRIMARY KEY (id_biletu)
 );
 
 CREATE TABLE Goscie
 (
-  id_goscia      INT         NOT NULL,
+  id_goscia      INT         NOT NULL AUTO_INCREMENT,
   imie           VARCHAR(20) NOT NULL,
   nazwisko       VARCHAR(30) NOT NULL,
   data_urodzenia DATE        NULL    ,
@@ -58,7 +58,7 @@ CREATE TABLE Odwiedzone_atrakcje
 
 CREATE TABLE Pracownicy
 (
-  id_pracownika     INT         NOT NULL,
+  id_pracownika     INT         NOT NULL AUTO_INCREMENT,
   imie              VARCHAR(20) NOT NULL,
   nazwisko          VARCHAR(30) NOT NULL,
   email             VARCHAR(75) NULL    ,
@@ -70,7 +70,7 @@ CREATE TABLE Pracownicy
 
 CREATE TABLE Transakcje
 (
-  id_transakcji   INT           NOT NULL,
+  id_transakcji   INT           NOT NULL AUTO_INCREMENT,
   id_goscia       INT           NOT NULL,
   data_transakcji TIMESTAMP     NOT NULL,
   kwota           DECIMAL(10,2) NULL     COMMENT 'cena biletow i ubezpieczen w chwilii zakupu biletu',
@@ -79,7 +79,7 @@ CREATE TABLE Transakcje
 
 CREATE TABLE Ubezpieczenia
 (
-  id_ubezpieczenia INT          NOT NULL,
+  id_ubezpieczenia INT          NOT NULL AUTO_INCREMENT,
   nazwa            VARCHAR(50)  NULL    ,
   cena             DECIMAL(7,2) NULL    ,
   PRIMARY KEY (id_ubezpieczenia)
@@ -87,7 +87,7 @@ CREATE TABLE Ubezpieczenia
 
 CREATE TABLE Wizyty
 (
-  id_wizyty        INT  NOT NULL,
+  id_wizyty        INT  NOT NULL AUTO_INCREMENT,
   id_ubezpieczenia INT  NOT NULL,
   id_biletu        INT  NOT NULL,
   id_goscia        INT  NOT NULL,
@@ -98,7 +98,7 @@ CREATE TABLE Wizyty
 
 CREATE TABLE Wynagrodzenia
 (
-  id_stanowiska INT           NOT NULL,
+  id_stanowiska INT           NOT NULL AUTO_INCREMENT,
   stanowisko    VARCHAR(50)   NOT NULL,
   wynagrodzenie DECIMAL(12,2) NOT NULL COMMENT 'na miesiac',
   PRIMARY KEY (id_stanowiska)
@@ -106,7 +106,7 @@ CREATE TABLE Wynagrodzenia
 
 CREATE TABLE Wypadki
 (
-  id_wypadku      INT           NOT NULL,
+  id_wypadku      INT           NOT NULL AUTO_INCREMENT,
   id_wizyty       INT           NOT NULL,
   id_zdarzenia    INT           NOT NULL,
   wyplacona_kwota DECIMAL(10,2) NULL     COMMENT 'faktycznie wypłacona kwota',
@@ -124,7 +124,7 @@ CREATE TABLE zakres_ubezpieczenia
 
 CREATE TABLE Zdarzenia
 (
-  id_zdarzenia       INT          NOT NULL,
+  id_zdarzenia       INT          NOT NULL AUTO_INCREMENT,
   nazwa              VARCHAR(40)  NULL    ,
   prawdopodobienstwo DECIMAL(5,4) NULL    ,
   PRIMARY KEY (id_zdarzenia)
