@@ -4,13 +4,13 @@
   "settings": {
     "width": 2000,
     "height": 2000,
-    "scrollTop": 0,
-    "scrollLeft": -7.0033,
+    "scrollTop": -665.6667,
+    "scrollLeft": -169.9634,
     "zoomLevel": 1,
     "show": 447,
     "database": 1,
     "databaseName": "",
-    "canvasType": "ERD",
+    "canvasType": "@dineug/erd-editor/builtin-schema-sql",
     "language": 1,
     "tableNameCase": 4,
     "columnNameCase": 2,
@@ -533,15 +533,15 @@
           "4vj03u5vzToT7U6H1_w8d"
         ],
         "ui": {
-          "x": 1279.5196,
-          "y": 586.6665,
+          "x": 1287.5196,
+          "y": 561.6665,
           "zIndex": 1233,
           "widthName": 60,
           "widthComment": 60,
           "color": ""
         },
         "meta": {
-          "updateAt": 1766346372199,
+          "updateAt": 1768516387523,
           "createAt": 1766269929598
         }
       }
@@ -2492,18 +2492,18 @@
         "tableId": "_epj_RJ9pfQK5RYevCEhv",
         "name": "data_transakcji",
         "comment": "",
-        "dataType": "TIMESTAMP",
+        "dataType": "DATETIME",
         "default": "",
         "options": 8,
         "ui": {
           "keys": 0,
           "widthName": 80,
           "widthComment": 60,
-          "widthDataType": 65,
+          "widthDataType": 60,
           "widthDefault": 60
         },
         "meta": {
-          "updateAt": 1766271199316,
+          "updateAt": 1768516488494,
           "createAt": 1766268532762
         }
       },
@@ -2872,18 +2872,18 @@
         "tableId": "FEbkP65LSyPlJqtSFj5Bo",
         "name": "czas_wypadku",
         "comment": "w dniu daty wizyty",
-        "dataType": "TIMESTAMP",
+        "dataType": "DATETIME",
         "default": "",
         "options": 0,
         "ui": {
           "keys": 0,
           "widthName": 77,
           "widthComment": 100,
-          "widthDataType": 65,
+          "widthDataType": 60,
           "widthDefault": 60
         },
         "meta": {
-          "updateAt": 1766270338057,
+          "updateAt": 1768516399992,
           "createAt": 1766270309937
         }
       },
@@ -3324,8 +3324,8 @@
           "columnIds": [
             "KEdhjvY9tnR_DVH_s4A43"
           ],
-          "x": 1279.5196,
-          "y": 674.6665,
+          "x": 1287.5196,
+          "y": 649.6665,
           "direction": 1
         },
         "meta": {
@@ -3352,8 +3352,8 @@
           "columnIds": [
             "aztiWYF4ioJ2ZZTOMZlba"
           ],
-          "x": 1546.0196,
-          "y": 762.6665,
+          "x": 1554.0196,
+          "y": 737.6665,
           "direction": 8
         },
         "meta": {

@@ -72,7 +72,7 @@ CREATE TABLE Transakcje
 (
   id_transakcji   INT           NOT NULL AUTO_INCREMENT,
   id_goscia       INT           NOT NULL,
-  data_transakcji TIMESTAMP     NOT NULL,
+  data_transakcji DATETIME      NOT NULL,
   kwota           DECIMAL(10,2) NULL     COMMENT 'cena biletow i ubezpieczen w chwilii zakupu biletu',
   PRIMARY KEY (id_transakcji)
 );
@@ -110,7 +110,7 @@ CREATE TABLE Wypadki
   id_wizyty       INT           NOT NULL,
   id_zdarzenia    INT           NOT NULL,
   wyplacona_kwota DECIMAL(10,2) NULL     COMMENT 'faktycznie wypłacona kwota',
-  czas_wypadku    TIMESTAMP     NULL     COMMENT 'w dniu daty wizyty',
+  czas_wypadku    DATETIME      NULL     COMMENT 'w dniu daty wizyty',
   PRIMARY KEY (id_wypadku)
 );
 
