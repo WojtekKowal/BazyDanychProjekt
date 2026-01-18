@@ -4,13 +4,13 @@
   "settings": {
     "width": 2000,
     "height": 2000,
-    "scrollTop": -665.6667,
-    "scrollLeft": -169.9634,
+    "scrollTop": -908.3333,
+    "scrollLeft": -2.7237,
     "zoomLevel": 1,
     "show": 447,
     "database": 1,
     "databaseName": "",
-    "canvasType": "@dineug/erd-editor/builtin-schema-sql",
+    "canvasType": "ERD",
     "language": 1,
     "tableNameCase": 4,
     "columnNameCase": 2,
@@ -426,8 +426,7 @@
           "H2MyvfdXVlRN2oq733ggv",
           "ccjYYCXlweNjvZBwX5mty",
           "laCPaNzezRkJNbDI3nj1N",
-          "_tuVb-DfTycBZyo2QPM12",
-          "T77jfyAhunw7QRTBiqpHI"
+          "_tuVb-DfTycBZyo2QPM12"
         ],
         "seqColumnIds": [
           "H2MyvfdXVlRN2oq733ggv",
@@ -446,7 +445,7 @@
           "color": ""
         },
         "meta": {
-          "updateAt": 1768426876704,
+          "updateAt": 1768741028120,
           "createAt": 1766265664189
         }
       },
@@ -3175,8 +3174,8 @@
           "columnIds": [
             "H2MyvfdXVlRN2oq733ggv"
           ],
-          "x": 607,
-          "y": 1198.9995,
+          "x": 540,
+          "y": 1186.9995,
           "direction": 2
         },
         "end": {

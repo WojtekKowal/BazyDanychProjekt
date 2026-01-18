@@ -26,7 +26,6 @@ CREATE TABLE Bilety
   rodzaj_biletu           VARCHAR(40)  NOT NULL,
   na_miejscu              BOOL         NULL    ,
   cena                    DECIMAL(7,2) NOT NULL,
-  okres_waznosci_w_dniach INT          NULL    ,
   PRIMARY KEY (id_biletu)
 );
 
