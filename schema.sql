@@ -1,7 +1,7 @@
 CREATE TABLE Atrakcje
 (
   id_atrakcji                INT           NOT NULL AUTO_INCREMENT,
-  nazwa_atrakcji             VARCHAR(50)   NULL    ,
+  nazwa_atrakcji             VARCHAR(70)   NULL    ,
   data_przegladu             DATE          NULL     COMMENT 'ostatni wykonany',
   data_nastepnego_przegladu  DATE          NULL     COMMENT 'nastepna, nie musi być w stałym odstępie',
   liczba_miejsc              INT           NULL    ,
@@ -22,10 +22,10 @@ CREATE TABLE Awarie
 
 CREATE TABLE Bilety
 (
-  id_biletu               INT          NOT NULL AUTO_INCREMENT,
-  rodzaj_biletu           VARCHAR(40)  NOT NULL,
-  na_miejscu              BOOL         NULL    ,
-  cena                    DECIMAL(7,2) NOT NULL,
+  id_biletu     INT          NOT NULL AUTO_INCREMENT,
+  rodzaj_biletu VARCHAR(40)  NOT NULL,
+  na_miejscu    BOOL         NULL    ,
+  cena          DECIMAL(7,2) NOT NULL,
   PRIMARY KEY (id_biletu)
 );
 
@@ -124,7 +124,7 @@ CREATE TABLE zakres_ubezpieczenia
 CREATE TABLE Zdarzenia
 (
   id_zdarzenia       INT          NOT NULL AUTO_INCREMENT,
-  nazwa              VARCHAR(40)  NULL    ,
+  nazwa              VARCHAR(70)  NULL    ,
   prawdopodobienstwo DECIMAL(5,4) NULL    ,
   PRIMARY KEY (id_zdarzenia)
 );

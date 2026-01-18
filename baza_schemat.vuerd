@@ -4,8 +4,8 @@
   "settings": {
     "width": 2000,
     "height": 2000,
-    "scrollTop": -908.3333,
-    "scrollLeft": -2.7237,
+    "scrollTop": -227.6666,
+    "scrollLeft": -507.5872,
     "zoomLevel": 1,
     "show": 447,
     "database": 1,
@@ -951,7 +951,7 @@
         "tableId": "1tuwRjBjdk4uGAyuw6Hts",
         "name": "nazwa_atrakcji",
         "comment": "",
-        "dataType": "VARCHAR(50)",
+        "dataType": "VARCHAR(70)",
         "default": "",
         "options": 0,
         "ui": {
@@ -962,7 +962,7 @@
           "widthDefault": 60
         },
         "meta": {
-          "updateAt": 1766261089407,
+          "updateAt": 1768750980966,
           "createAt": 1766259728483
         }
       },
@@ -2011,7 +2011,7 @@
         "tableId": "U94dOXPvgjMfGI6rVC-3Z",
         "name": "nazwa",
         "comment": "",
-        "dataType": "VARCHAR(40)",
+        "dataType": "VARCHAR(70)",
         "default": "",
         "options": 0,
         "ui": {
@@ -2022,7 +2022,7 @@
           "widthDefault": 60
         },
         "meta": {
-          "updateAt": 1766265912307,
+          "updateAt": 1768750969242,
           "createAt": 1766265513457
         }
       },
