@@ -152,8 +152,6 @@ plt.title('Czasowa niedostępność atrakcji')
 plt.tight_layout()
 plt.show()
 
-
-'''
 # f) Wpływ awarii na przychody
 print("f) Wpływ awarii na przychody")
 
@@ -199,6 +197,126 @@ plt.legend()
 plt.grid(True, linestyle='--', alpha=0.5)
 plt.tight_layout()
 plt.show()
+
+
+# PYATANIE 2: Sporządź wykres liczby obsłużonych klientów w każdym miesiącu działalności firmy, czy firma rośnie, czy podupada?
+print("PYTANIE 2: Sporządź wykres liczby obsłużonych klientów w każdym miesiącu działalności firmy, czy firma rośnie, czy podupada?")
+
+cursor.execute("""SELECT DATE_FORMAT(data_wizyty, '%Y-%m') AS miesiac, COUNT(*) AS liczba_wizyt
+FROM Wizyty
+GROUP BY miesiac
+ORDER BY miesiac;""")
+
+wizyty_miesiac = pd.DataFrame(cursor.fetchall(), columns=['miesiac', 'liczba_wizyt'])
+print(wizyty_miesiac)
+
+plt.figure(figsize=(12,6))
+plt.plot(wizyty_miesiac['miesiac'], wizyty_miesiac['liczba_wizyt'], marker='o', color='blue')
+plt.xticks(rotation=45, ha='right')
+plt.xlabel('Miesiąc')
+plt.ylabel('Liczba obsłużonych klientów')
+plt.title('Liczba obsłużonych klientów w każdym miesiącu')
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
+
+# PYTANIE 3: Sprawdź, czy któreś atrakcje są zbyt niebezpieczne? Czy trzeba poprawić ich bezpieczeństwo, a może zwiększyć koszt ubezpieczenia?
+print("PYTANIE 3: Sprawdź, czy któreś atrakcje są zbyt niebezpieczne? Czy trzeba poprawić ich bezpieczeństwo, a może zwiększyć koszt ubezpieczenia?")
+
+cursor.execute("""SELECT a.id_atrakcji, a.nazwa_atrakcji, COUNT(wp.id_wypadku) AS liczba_wypadkow, AVG(IFNULL(wp.wyplacona_kwota, 0)) AS srednia_wyplata, COUNT(wp.id_wypadku) / COUNT(DISTINCT v.id_wizyty) AS wypadki_na_wizyte
+FROM Atrakcje a
+LEFT JOIN Odwiedzone_atrakcje oa ON a.id_atrakcji = oa.id_atrakcji
+LEFT JOIN Wizyty v ON oa.id_wizyty = v.id_wizyty
+LEFT JOIN Wypadki wp ON v.id_wizyty = wp.id_wizyty
+GROUP BY a.id_atrakcji, a.nazwa_atrakcji
+ORDER BY liczba_wypadkow DESC;""")
+
+bezpieczenstwo_atrakcji = pd.DataFrame(cursor.fetchall(), columns=['id_atrakcji', 'nazwa_atrakcji', 'liczba_wypadkow', 'srednia_wyplata', 'wypadki_na_wizyte'])
+print(bezpieczenstwo_atrakcji)
+
+print("""Atrakcje z dużą liczbą wypadków i dużą średnią wypłatą --> niebezpieczne, mogą wymagać poprawy bezpieczeństwa lub dodatkowego szkolenia obsługi.
+Atrakcje z wysokim wskaźnikiem wypadków na wizytę --> ryzyko wysokie w stosunku do liczby klientów, warto rozważyć podwyższenie kosztu ubezpieczenia.
+Jeśli wypadki są nieliczne i kwoty małe --> zwykle wystarczy monitoring i drobne poprawki bezpieczeństwa.""")
+
+
+plt.figure(figsize=(12,6))
+plt.scatter(bezpieczenstwo_atrakcji['liczba_wypadkow'], bezpieczenstwo_atrakcji['srednia_wyplata'], 
+            s=100, color='red', alpha=0.6)
+for i, row in bezpieczenstwo_atrakcji.iterrows():
+    if row['liczba_wypadkow'] > 0:
+        plt.text(row['liczba_wypadkow']+0.1, row['srednia_wyplata'], row['nazwa_atrakcji'], fontsize=9)
+plt.xlabel('Liczba wypadków')
+plt.ylabel('Średnia wypłata z ubezpieczenia')
+plt.title('Niebezpieczeństwo atrakcji – liczba wypadków vs średnia wypłata')
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.show()
+
+print("""Atrakcje w prawym górnym rogu --> dużo wypadków i wysokie koszty → priorytet do poprawy bezpieczeństwa lub ubezpieczenia
+Atrakcje w lewym dolnym rogu --> mało ryzykowne""")
+
+
+
+# PYTANIE 4: Które atrakcje generują dużo przychodu przy niskich kosztach obsługi?
+print("PYTANIE 4: Które atrakcje generują dużo przychodu przy niskich kosztach obsługi?")
+
+cursor.execute("""SELECT p.id_atrakcji, p.nazwa_atrakcji, p.przychod, k.koszt, (p.przychod - k.koszt) AS zysk, (p.przychod - k.koszt) / k.koszt AS zysk_przez_koszt
+FROM (
+    SELECT a.id_atrakcji, a.nazwa_atrakcji, SUM(t.kwota) AS przychod
+    FROM Atrakcje a
+    JOIN Odwiedzone_atrakcje oa ON a.id_atrakcji = oa.id_atrakcji
+    JOIN Wizyty w ON oa.id_wizyty = w.id_wizyty
+    JOIN Transakcje t ON w.id_transakcji = t.id_transakcji
+    GROUP BY a.id_atrakcji, a.nazwa_atrakcji
+) p
+JOIN (
+    SELECT a.id_atrakcji, SUM(wy.wynagrodzenie) AS koszt
+    FROM Atrakcje a
+    JOIN Obsluga_atrakcji oa ON a.id_atrakcji = oa.id_atrakcji
+    JOIN Wynagrodzenia wy ON oa.id_stanowiska = wy.id_stanowiska
+    GROUP BY a.id_atrakcji
+) k ON p.id_atrakcji = k.id_atrakcji
+ORDER BY zysk_przez_koszt DESC;""")
+
+efektywnosc_atrakcji = pd.DataFrame(cursor.fetchall(), columns=['id_atrakcji', 'nazwa_atrakcji', 'przychod', 'koszt', 'zysk', 'zysk_przez_koszt'])
+print(efektywnosc_atrakcji)
+
+cursor.execute("""SELECT id_atrakcji, COUNT(*) AS liczba_odwiedzin
+FROM Odwiedzone_atrakcje
+GROUP BY id_atrakcji;""")
+odwiedziny = pd.DataFrame(cursor.fetchall(), columns=['id_atrakcji', 'liczba_odwiedzin'])
+print(odwiedziny)
+efektywnosc_atrakcji = efektywnosc_atrakcji.merge(odwiedziny, on='id_atrakcji')
+efektywnosc_atrakcji['zysk_przez_koszt'] = efektywnosc_atrakcji['zysk_przez_koszt'].astype(float)
+print(efektywnosc_atrakcji)
+
+# Wykres rozrzutu
+plt.figure(figsize=(12,6))
+plt.scatter(
+    efektywnosc_atrakcji['liczba_odwiedzin'], 
+    efektywnosc_atrakcji['zysk'], 
+    s=efektywnosc_atrakcji['zysk_przez_koszt']*50,
+    c=efektywnosc_atrakcji['zysk_przez_koszt'],   
+    cmap='viridis', 
+    alpha=0.7,
+    edgecolors='w'
+)
+
+for i, row in efektywnosc_atrakcji.iterrows():
+    if row['zysk'] > 0:
+        plt.text(row['liczba_odwiedzin']+0.5, row['zysk'], row['nazwa_atrakcji'], fontsize=9)
+
+plt.xlabel('Liczba odwiedzin (popularność)')
+plt.ylabel('Zysk atrakcji')
+plt.title('Efektywność atrakcji: zysk vs liczba odwiedzin')
+plt.colorbar(label='Zysk / Koszt')
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
+
+'''
+
+# PYTANIE 5: Jak atrakcyjność atrakcji zmienia się w zależności od sezonu?
+print("PYTANIE 5: Jak atrakcyjność atrakcji zmienia się w zależności od sezonu?")
 
 
 
