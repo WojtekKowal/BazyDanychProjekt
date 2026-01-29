@@ -1,0 +1,918 @@
+---
+title: "Park rozrywki AiBtcQuantLandia: analiza popularności, przychodów i niezawodności atrakcji"
+author: 
+  - Wojciech Kowal
+  - Mateusz Łazowy
+  - Jakub Idasiak
+  - Darina Khamrakulova
+date: "`r format(Sys.time(), '%d-%m-%y')`"
+lang: pl
+output: 
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    number_sections: true
+    fig_caption: true
+    toc: true
+graphics: cairo
+header-includes:
+  - \usepackage{float}
+  - \usepackage{titlesec}
+---
+
+```{r r-setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.pos = "H", message = FALSE, warning = FALSE, dev = "pdf", results = 'hide')
+library(knitr)
+library(reticulate)
+virtualenv_create("r-reticulate")
+use_virtualenv("r-reticulate", required = TRUE)
+py_install(c("pandas","matplotlib", "mysql.connector","numpy","seaborn"))
+```
+
+```{python py-setup, include = FALSE}
+import mysql.connector
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+con = mysql.connector.connect(
+    host='giniewicz.it',
+    user='team03',
+    password='te@mzoe',
+    database='team03',
+    port=3306
+)
+
+cursor = con.cursor()
+```
+
+
+
+\newpage
+
+
+# Najpopularniejsze atrakcje: porównanie kosztów i zysków.
+
+
+## Najpopularniejsze atrakcje.
+
+
+```{python najpopularniejsze, fig.cap = "10 najpopularniejszych atrakcji w naszym parku."}
+cursor.execute("""SELECT a.id_atrakcji, a.nazwa_atrakcji, COUNT(oa.id_atrakcji) AS liczba_odwiedzin 
+FROM Atrakcje a
+JOIN Odwiedzone_atrakcje oa ON a.id_atrakcji = oa.id_atrakcji
+GROUP BY a.id_atrakcji, a.nazwa_atrakcji
+ORDER BY liczba_odwiedzin DESC;""")
+
+popularne_atrakcje = pd.DataFrame(cursor.fetchall(), columns=['id_atrakcji', 'nazwa_atrakcji', 'liczba_odwiedzin'])
+
+top_atrakcje = popularne_atrakcje.head(10)
+top_atrakcje_nazwy = top_atrakcje['nazwa_atrakcji'].tolist()
+plt.figure(figsize=(12,6))
+plt.bar(top_atrakcje['nazwa_atrakcji'], top_atrakcje['liczba_odwiedzin'], color='skyblue')
+plt.xticks(rotation=45, ha='right')
+plt.xlabel('Atrakcja')
+plt.yscale('log')
+plt.ylabel('Liczba odwiedzin\n(skala logarytmiczna)')
+plt.title('Top 10 najpopularniejszych atrakcji', fontsize = 16)
+plt.tight_layout() 
+plt.show()
+```
+```{r}
+top_atrakcje_nazwy_r <- py_to_r(py$top_atrakcje_nazwy)
+```
+
+Z rysunku \@ref(fig:najpopularniejsze) widać, że 10 najpopularniejszych atrakcji w naszym parku to `r top_atrakcje_nazwy_r`.
+
+
+## Przychody generowane przez najpopularniejsze atrakcje.
+
+
+Udział dziesięciu najpopularniejszych atrakcji w przychodach przedstawiony na rysunku \@ref(fig:przcyhody-atrakcje).
+
+
+```{python przcyhody-atrakcje, fig.cap = "Porównanie przychodów generowanych przez 10 najpopularniejszych atrakcji do pozostałych atrakcji."}
+cursor.execute("""SELECT a.id_atrakcji, a.nazwa_atrakcji, SUM(t.kwota) AS przychod
+FROM Atrakcje a
+JOIN Odwiedzone_atrakcje oa ON a.id_atrakcji = oa.id_atrakcji
+JOIN Wizyty w ON oa.id_wizyty = w.id_wizyty
+JOIN Transakcje t ON w.id_transakcji = t.id_transakcji
+GROUP BY a.id_atrakcji, a.nazwa_atrakcji;""")
+
+przychody_atrakcji = pd.DataFrame(cursor.fetchall(), columns=['id_atrakcji', 'nazwa_atrakcji', 'przychod'])
+
+top_przychody = przychody_atrakcji.sort_values(by='przychod', ascending=False).head(10)
+pozostale_przychody = przychody_atrakcji['przychod'].sum() - top_przychody['przychod'].sum()
+
+
+plt.figure(figsize=(8,8))
+plt.pie(list(top_przychody['przychod'])  + [pozostale_przychody], labels=list(top_przychody['nazwa_atrakcji'])+ ['pozostałe'], 
+        autopct='%1.1f%%', startangle=140, colors=plt.cm.tab20.colors)
+plt.title('Udział top 10 atrakcji w przychodach', fontsize = 16)
+plt.show()
+
+```
+
+
+\clearpage
+
+
+```{r table-kolowy-wykres, results='markup'}
+
+df_zad1_py <- py$top_przychody
+przychody_r <- data.frame(
+  df_zad1_py$values
+)
+colnames(przychody_r) <- df_zad1_py$columns$to_list()
+
+przychody_r$id_atrakcji <- as.integer(przychody_r$id_atrakcji)
+przychody_r$przychod <- sapply(przychody_r$przychod, function(x) as.numeric(py_str(x)))
+
+kable(przychody_r, caption = "Przychody najpopularniejszych atrakcji.", col.names = c("Id atrakcji", "Nazwa atrakcji", "Przychody"), booktabs = TRUE)
+```
+
+
+W tabeli \@ref(tab:table-kolowy-wykres) zamieszczono wartości przychodów dla 10 najpopularniejszych atrakcji.
+
+
+## Koszty obsługi atrakcji.
+
+
+Koszty obsługi atrakcji przedstawiono na rysunku \@ref(fig:koszty-obslugi).
+
+
+```{python koszty-obslugi, fig.cap = "Porównanie kosztów utrzymania atrakcji."}
+print("c) Koszty obsługi atrakcji")
+
+cursor.execute("""SELECT a.id_atrakcji, a.nazwa_atrakcji, SUM(wy.wynagrodzenie) AS koszt_wynagrodzen
+FROM Atrakcje a
+JOIN Obsluga_atrakcji oa ON a.id_atrakcji = oa.id_atrakcji
+JOIN Pracownicy p ON oa.id_stanowiska = p.id_stanowiska
+JOIN Wynagrodzenia wy ON p.id_stanowiska = wy.id_stanowiska
+GROUP BY a.id_atrakcji, a.nazwa_atrakcji;""")
+
+koszty_atrakcji = pd.DataFrame(cursor.fetchall(), columns=['id_atrakcji', 'nazwa_atrakcji', 'koszt_wynagrodzen'])
+
+koszty_top = koszty_atrakcji.sort_values(by='koszt_wynagrodzen', ascending=False)
+
+koszty_top_3 = koszty_top.head(3)
+top_3_koszty_nazwy = koszty_top_3['nazwa_atrakcji'].tolist()
+
+plt.figure(figsize=(10,6))
+plt.barh(koszty_top['nazwa_atrakcji'], koszty_top['koszt_wynagrodzen'], color='salmon')
+plt.xlabel('Koszt wynagrodzeń\n(skala logarytmiczna)')
+plt.ylabel('Atrakcja')
+plt.title('Koszty obsługi atrakcji', fontsize = 16)
+plt.gca().invert_yaxis()  # Największe koszty na górze
+plt.xscale('log')
+plt.tight_layout()
+plt.show()
+
+```
+```{r}
+top_3_koszty_nazwy_r <- py_to_r(py$top_3_koszty_nazwy)
+```
+
+
+Z rysunku \@ref(fig:koszty-obslugi) widać, że trzy atrakcje o najwyższych kosztach obsługi to `r top_3_koszty_nazwy_r`.
+
+
+## Opłacalność atrakcji.
+
+
+Opłacalność wszystkich atrakcji w naszym parku przedstawiono na rysunku \@ref(fig:oplacalnosc-ile-tego-mozna). 
+
+
+```{python oplacalnosc-ile-tego-mozna, fig.cap = "Rentowność atrakcji."}
+cursor.execute("""SELECT p.id_atrakcji, p.nazwa_atrakcji, p.przychod, k.koszt, (p.przychod - k.koszt) AS zysk
+FROM (
+    SELECT a.id_atrakcji, a.nazwa_atrakcji, SUM(t.kwota) AS przychod
+    FROM Atrakcje a
+    JOIN Odwiedzone_atrakcje oa ON a.id_atrakcji = oa.id_atrakcji
+    JOIN Wizyty w ON oa.id_wizyty = w.id_wizyty
+    JOIN Transakcje t ON w.id_transakcji = t.id_transakcji
+    GROUP BY a.id_atrakcji, a.nazwa_atrakcji
+) p
+JOIN (
+    SELECT a.id_atrakcji, SUM(wy.wynagrodzenie) AS koszt
+    FROM Atrakcje a
+    JOIN Obsluga_atrakcji oa ON a.id_atrakcji = oa.id_atrakcji
+    JOIN Wynagrodzenia wy ON oa.id_stanowiska = wy.id_stanowiska
+    GROUP BY a.id_atrakcji
+) k ON p.id_atrakcji = k.id_atrakcji;""")
+
+oplacalnosc_atrakcji = pd.DataFrame(cursor.fetchall(), columns=['id_atrakcji', 'nazwa_atrakcji', 'przychod', 'koszt', 'zysk'])
+
+
+oplacalnosc_top = oplacalnosc_atrakcji.sort_values(by='zysk', ascending=False)
+oplacalnosc_top_5 = oplacalnosc_top.head(5)
+top_5_oplacalnosc_nazwy = oplacalnosc_top_5['nazwa_atrakcji'].tolist()
+
+# Kolory: niebieski dla zysku >= 60000, czerwony dla < 60000
+colors = ['skyblue' if x >= 60000 else 'salmon' for x in oplacalnosc_top['zysk']]
+
+plt.figure(figsize=(12,6))
+plt.barh(oplacalnosc_top['nazwa_atrakcji'], oplacalnosc_top['zysk'], color=colors)
+plt.xlabel('Zysk (przychód - koszt)\n(skala logarytmiczna)')
+plt.ylabel('Atrakcja')
+plt.xscale('log')
+plt.title('Opłacalność atrakcji', fontsize = 16)
+plt.gca().invert_yaxis()  # Najwyższy zysk na górze
+plt.tight_layout()
+plt.show()
+
+```
+
+
+
+```{r table-oplacalnosc, results = 'markup'}
+top_5_oplacalnosc_nazwy_r <- py_to_r(py$top_5_oplacalnosc_nazwy)
+
+df_zad_opl <- py$oplacalnosc_top_5
+id_atrakcji <- df_zad_opl$id_atrakcji$to_list()  
+nazwa_atrakcji <- df_zad_opl$nazwa_atrakcji$to_list()
+zysk <- df_zad_opl$zysk$to_list()
+zysk <- sapply(zysk, function(x) as.numeric(py_str(x)))
+
+oplacalnosc_r <- data.frame(
+  id_atrakcji = id_atrakcji,
+  nazwa_atrakcji = nazwa_atrakcji,
+  zysk = zysk
+)
+
+kable(oplacalnosc_r, caption = "Zyski 5 najbardziej opłacalnych atrakcji.", col.names = c("Id atrakcji", "Nazwa atrakcji", "Zysk"))
+```
+
+
+
+Na podstawie uzyskanych wyników można stwierdzić, że najbardziej opłacalnymi w naszym parku są `r top_5_oplacalnosc_nazwy_r`. Zyski tych atrakcji są przedstawione w tabeli \@ref(tab:table-oplacalnosc).
+
+
+## Czasowa niedostępność atrakcji.
+
+
+Wykres z rysunku \@ref(fig:kolejny-wykres-aaaaa) pokazuje, jak regularnie atrakcje w naszym parku były niedostępne z powodu awarii.
+
+
+```{python kolejny-wykres-aaaaa, fig.cap = "Czasowa niedostępność atrakcji z powodu awarii."}
+cursor.execute("""SELECT a.id_atrakcji, a.nazwa_atrakcji, COALESCE(SUM(DATEDIFF(IFNULL(aw.data_zakonczenia_naprawy, CURDATE()), aw.data_zgloszenia)), 0) AS dni_niedostepnosci
+FROM Atrakcje a
+LEFT JOIN Awarie aw ON a.id_atrakcji = aw.id_atrakcji
+GROUP BY a.id_atrakcji, a.nazwa_atrakcji;""")
+
+niedostepnosc_atrakcji = pd.DataFrame(cursor.fetchall(), columns=['id_atrakcji', 'nazwa_atrakcji', 'dni_niedostepnosci'])
+
+# dni niedostępności malejąco
+niedostepnosc_top = niedostepnosc_atrakcji.sort_values(by='dni_niedostepnosci', ascending=False)
+
+niedostepnosc_top_3 = niedostepnosc_top.head(3)
+niedostepnosc_top_3_nazwy = niedostepnosc_top_3['nazwa_atrakcji'].tolist()
+
+
+# Wykres słupkowy
+plt.figure(figsize=(12,6))
+plt.bar(niedostepnosc_top['nazwa_atrakcji'], niedostepnosc_top['dni_niedostepnosci'], color='skyblue')
+plt.xticks(rotation=45, ha='right') 
+plt.ylabel('Dni niedostępności')
+plt.xlabel('Atrakcja')
+plt.title('Czasowa niedostępność atrakcji', fontsize = 16)
+plt.tight_layout()
+plt.show()
+```
+```{r}
+top_3_niedostepnosc_nazwy_r <- py_to_r(py$niedostepnosc_top_3_nazwy)
+```
+
+Najczęściej niedostępne były atrakcje `r top_3_niedostepnosc_nazwy_r`.
+
+
+
+## Wpływ awarii na przychody.
+
+
+Zmiany przychodów atrakcji z powodu występowania awarii przedstawiono na rysunku \@ref(fig:ostatni-wykres). Szczególną uwagę można zwrócić na punkty na wykresie odpowiadające najczęściej niedostępnym atrakcjom, czyli `r top_3_niedostepnosc_nazwy_r`.
+
+
+```{python ostatni-wykres, fig.cap = "Zmiany przychodów atrakcji z powodu awarii."}
+cursor.execute("""SELECT a.id_atrakcji, a.nazwa_atrakcji,
+    SUM(CASE 
+            WHEN EXISTS (
+                SELECT 1
+                FROM Awarie aw
+                WHERE aw.id_atrakcji = a.id_atrakcji
+                  AND w.data_wizyty BETWEEN aw.data_zgloszenia 
+                                       AND IFNULL(aw.data_zakonczenia_naprawy, CURDATE())
+            )
+            THEN t.kwota
+            ELSE 0
+        END) AS przychod_stracony,
+    SUM(t.kwota) AS przychod_calkowity
+FROM Atrakcje a
+LEFT JOIN Odwiedzone_atrakcje oa ON a.id_atrakcji = oa.id_atrakcji
+LEFT JOIN Wizyty w ON oa.id_wizyty = w.id_wizyty
+LEFT JOIN Transakcje t ON w.id_transakcji = t.id_transakcji
+GROUP BY a.id_atrakcji, a.nazwa_atrakcji;""")
+
+awaria_a_przychody = pd.DataFrame(cursor.fetchall(), columns=['id_atrakcji', 'nazwa_atrakcji', 'przychod_stracony', 'przychod_calkowity'])
+
+awaria_a_przychody_sorted = awaria_a_przychody.sort_values(by='przychod_calkowity', ascending=False)
+plt.figure(figsize=(14,6))
+
+# Linia dla przychodów całkowitych
+plt.plot(awaria_a_przychody_sorted['nazwa_atrakcji'], awaria_a_przychody_sorted['przychod_calkowity'], 
+         marker='o', color='green', label='Przychód całkowity')
+
+# Linia dla przychodów straconych
+plt.plot(awaria_a_przychody_sorted['nazwa_atrakcji'], awaria_a_przychody_sorted['przychod_stracony'], 
+         marker='o', color='red', label='Przychód stracony (awarie)')
+         
+plt.xticks(rotation=45, ha='right')
+plt.ylabel('Kwota przychodu')
+plt.xlabel('Atrakcja')
+plt.title('Wpływ awarii na przychody atrakcji', fontsize = 16)
+plt.legend()
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
+```
+
+
+
+# Analiza liczby obsłużonych klientów w każdym miesiącu działalności firmy. 
+
+
+Wykres liczby miesięcznie obslużonych klientów  można zobaczyć na rysunku \@ref(fig:rosnie-podupada).
+
+
+```{python rosnie-podupada, fig.cap = "Liczba obsłużonych klientów w poszczególnych miesiącach."}
+cursor.execute("""SELECT DATE_FORMAT(data_wizyty, '%Y-%m') AS miesiac, COUNT(*) AS liczba_wizyt
+FROM Wizyty
+GROUP BY miesiac
+ORDER BY miesiac;""")
+
+wizyty_miesiac = pd.DataFrame(cursor.fetchall(), columns=['miesiac', 'liczba_wizyt'])
+ostatni_mies = wizyty_miesiac.tail(1)['miesiac'].tolist()
+ostatni_mies_ile = wizyty_miesiac.tail(1)['liczba_wizyt'].tolist()
+
+plt.figure(figsize=(12,6))
+plt.plot(wizyty_miesiac['miesiac'], wizyty_miesiac['liczba_wizyt'], marker='o', color='green')
+plt.xticks(wizyty_miesiac['miesiac'][::6],
+  rotation=45, ha='right')
+plt.xlabel('Miesiąc')
+plt.ylabel('Liczba obsłużonych klientów')
+plt.title('Liczba obsłużonych klientów w każdym miesiącu', fontsize = 16)
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
+```
+```{r}
+ostatni_mies_r <- py_to_r(py$ostatni_mies)
+ostatni_mies_ile_r <- py_to_r(py$ostatni_mies_ile)
+```
+
+W ostatnim miesiącu funkcjonowania naszego parku (`r ostatni_mies_r`) liczba obsłużonych klientów wyniosła `r ostatni_mies_ile_r`.
+
+
+# Ocena poziomu bezpieczeństwa atrakcji oraz konieczności wprowadzenia zmian.
+
+
+
+```{python safe-or-change, fig.cap = "Porównanie atrakcji pod względem częstości wypadków i średniej wypłaty z ubezpieczenia."}
+cursor.execute("""SELECT a.id_atrakcji, a.nazwa_atrakcji, COUNT(wp.id_wypadku) AS liczba_wypadkow, AVG(IFNULL(wp.wyplacona_kwota, 0)) AS srednia_wyplata, COUNT(wp.id_wypadku) / COUNT(DISTINCT v.id_wizyty) AS wypadki_na_wizyte
+FROM Atrakcje a
+LEFT JOIN Odwiedzone_atrakcje oa ON a.id_atrakcji = oa.id_atrakcji
+LEFT JOIN Wizyty v ON oa.id_wizyty = v.id_wizyty
+LEFT JOIN Wypadki wp ON v.id_wizyty = wp.id_wizyty
+GROUP BY a.id_atrakcji, a.nazwa_atrakcji
+ORDER BY liczba_wypadkow DESC;""")
+
+bezpieczenstwo_atrakcji = pd.DataFrame(cursor.fetchall(), columns=['id_atrakcji', 'nazwa_atrakcji', 'liczba_wypadkow', 'srednia_wyplata', 'wypadki_na_wizyte'])
+bezpieczenstwo_atrakcji_nazwa = bezpieczenstwo_atrakcji['nazwa_atrakcji'].tolist()
+
+plt.figure(figsize=(12,6))
+plt.scatter(bezpieczenstwo_atrakcji['liczba_wypadkow'], bezpieczenstwo_atrakcji['srednia_wyplata'], 
+            s=100, color='red', alpha=0.6)
+for i, row in bezpieczenstwo_atrakcji.iterrows():
+    if row['liczba_wypadkow'] > 0:
+        plt.text(row['liczba_wypadkow']+0.1, row['srednia_wyplata'], row['nazwa_atrakcji'], fontsize=9)
+plt.xlabel('Liczba wypadków')
+plt.ylabel('Średnia wypłata z ubezpieczenia')
+plt.title('Niebezpieczeństwo atrakcji – liczba wypadków vs średnia wypłata', fontsize=16)
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.show()
+```
+```{r tabela-bezpieczenstwo, tab.cap="Częstości wypadków i średnie wypłaty z ubezpieczenia atrakcji.", results='markup'}
+bezpieczenstwo_atrakcji_nazwa_r <- py_to_r(py$bezpieczenstwo_atrakcji_nazwa)
+
+df_bezp_py <- py$bezpieczenstwo_atrakcji
+
+id_atrakcji <- df_bezp_py$id_atrakcji$to_list()  
+nazwa_atrakcji <- df_bezp_py$nazwa_atrakcji$to_list()
+srednia_wyplata <- df_bezp_py$srednia_wyplata$to_list()
+srednia_wyplata <- sapply(srednia_wyplata, function(x) as.numeric(py_str(x)))
+liczba_wypadkow <- df_bezp_py$wypadki_na_wizyte$to_list()
+liczba_wypadkow <- sapply(liczba_wypadkow, function(x) as.numeric(py_str(x)))
+
+bezp_r <- data.frame(
+  id_atrakcji = id_atrakcji,
+  nazwa_atrakcji = nazwa_atrakcji,
+  srednia_wyplata = srednia_wyplata,
+  liczba_wypadkow = liczba_wypadkow
+)
+
+kable(bezp_r, col.names = c("Id atrakcji","Nazwa atrakcji","Średnia wypłata z ubezpieczenia","Liczba wypadków na wizytę"), caption = "Częstości wypadków i średnie wypłaty z ubezpieczenia atrakcji.")
+```
+ 
+Porównanie atrakcji pod względem częstości wypadków i średniej wypłaty z ubezpieczenia jest zaprezentowane na rysunku \@ref(fig:safe-or-change). 
+
+Na wykresie widać, że atrakcje, które znajdują się w prawym górnym rogu charakteryzują się dużą liczbą wypadków oraz dużą średnią wypłatą z ubezpieczenia. Takie atrakcje tworzą zagrożenie i priorytetem jest poprawa ich bezpieczeństwa lub szkolenie obługi w tym zakresie. Dodatkowo można podwyższyć składki ubezpieczenia. Natomiast atrakcje znajdujące się na wykresie w lewym dolnym rogu są mało ryzykowne. Wypadki na tych tyhc atrakcjach są nieliczne i kwoty wypłat z ubezpieczenia są niskie. W przypadku tych atrakcji zazwyczaj wystarczy monitoring zdarzeń i drobne poprawki zabezpieczenia, aby utrzymać stabilny poziom bezpieczeństwa.
+
+W tabeli \@ref(tab:tabela-bezpieczenstwo) umieszczono dla wszystkich atrakcji informacje dotyczące liczby wypadków na wizytę oraz średniej wypłaty z ubezpieczenia.
+
+
+# Atrakcje o wysokiej rentowności i niskich kosztach obsługi.
+
+
+Na rysunku \@ref(fig:wys-rent-low-koszt) można zobaczyć wyniki zestawienia efektywności atrakcji na podstawie generowanych zysków do kosztów obsługi. Im bliżej prawego górnego rogu wykresu jest punkt, tym większe są zysk i liczba odwiedzin atrakcji. Z kolei punktu znajdujące się bliżej lewego dolnego rogu mają mniejsze zyski oraz liczby wizyt. Warto też zwrócić uwagę na kolor i rozmiar punktów, które wskazują na rentowność atrakcji pod względem kosztów utrzymania. Najlepsze atrakcje mają niebiesko-fioletowy kolor, a najmniej opłacalne - czerwony.
+
+
+```{python wys-rent-low-koszt, fig.cap = "Porównanie efektywności atrakcji na podstawie zysków oraz kosztów obsługi."}
+cursor.execute("""SELECT p.id_atrakcji, p.nazwa_atrakcji, p.przychod, k.koszt, (p.przychod - k.koszt) AS zysk, (p.przychod - k.koszt) / k.koszt AS zysk_przez_koszt
+FROM (
+    SELECT a.id_atrakcji, a.nazwa_atrakcji, SUM(t.kwota) AS przychod
+    FROM Atrakcje a
+    JOIN Odwiedzone_atrakcje oa ON a.id_atrakcji = oa.id_atrakcji
+    JOIN Wizyty w ON oa.id_wizyty = w.id_wizyty
+    JOIN Transakcje t ON w.id_transakcji = t.id_transakcji
+    GROUP BY a.id_atrakcji, a.nazwa_atrakcji
+) p
+JOIN (
+    SELECT a.id_atrakcji, SUM(wy.wynagrodzenie) AS koszt
+    FROM Atrakcje a
+    JOIN Obsluga_atrakcji oa ON a.id_atrakcji = oa.id_atrakcji
+    JOIN Wynagrodzenia wy ON oa.id_stanowiska = wy.id_stanowiska
+    GROUP BY a.id_atrakcji
+) k ON p.id_atrakcji = k.id_atrakcji
+ORDER BY zysk_przez_koszt DESC;""")
+
+efektywnosc_atrakcji = pd.DataFrame(cursor.fetchall(), columns=['id_atrakcji', 'nazwa_atrakcji', 'przychod', 'koszt', 'zysk', 'zysk_przez_koszt'])
+
+
+cursor.execute("""SELECT id_atrakcji, COUNT(*) AS liczba_odwiedzin
+FROM Odwiedzone_atrakcje
+GROUP BY id_atrakcji;""")
+odwiedziny = pd.DataFrame(cursor.fetchall(), columns=['id_atrakcji', 'liczba_odwiedzin'])
+efektywnosc_atrakcji = efektywnosc_atrakcji.merge(odwiedziny, on='id_atrakcji')
+efektywnosc_atrakcji['zysk_przez_koszt'] = efektywnosc_atrakcji['zysk_przez_koszt'].astype(float)
+
+top_3_efektywne = efektywnosc_atrakcji.sort_values('zysk_przez_koszt', ascending = False).head(3)
+top_3_efektywne_nazwy = top_3_efektywne['nazwa_atrakcji'].tolist()
+df_top_3_ef = pd.DataFrame(top_3_efektywne)
+
+top_3_zle = efektywnosc_atrakcji.sort_values('zysk_przez_koszt', ascending = True).head(3)
+top_3_zle_nazwy = top_3_zle['nazwa_atrakcji'].tolist()
+df_top_3_zle = pd.DataFrame(top_3_zle)
+
+plt.figure(figsize=(12,6))
+plt.scatter(
+    efektywnosc_atrakcji['liczba_odwiedzin'], 
+    efektywnosc_atrakcji['zysk'], 
+    s=efektywnosc_atrakcji['zysk_przez_koszt']*50,
+    c=efektywnosc_atrakcji['zysk_przez_koszt'],   
+    cmap='RdYlBu', 
+    alpha=0.7,
+    edgecolors='w'
+)
+
+for i, row in efektywnosc_atrakcji.iterrows():
+    if row['zysk'] > 0:
+        plt.text(row['liczba_odwiedzin']+0.5, row['zysk'], row['nazwa_atrakcji'], fontsize=9)
+
+plt.xlabel('Liczba odwiedzin (popularność)')
+plt.ylabel('Zysk atrakcji')
+plt.title('Efektywność atrakcji: zysk vs liczba odwiedzin', fontsize = 16)
+plt.colorbar(label='Zysk / Koszt')
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
+
+```
+```{r tab-efektywnosc, results='markup'}
+top_3_efektywne_nazwy_r <- py_to_r(py$top_3_efektywne_nazwy)
+top_3_zle_nazwy_r <- py_to_r(py$top_3_zle_nazwy)
+
+
+
+df_ef_py <- py$df_top_3_ef
+id_atrakcji <- df_ef_py$id_atrakcji$to_list()  
+nazwa_atrakcji <- df_ef_py$nazwa_atrakcji$to_list()
+zysk <- df_ef_py$zysk$to_list()
+zysk <- sapply(zysk, function(x) as.numeric(py_str(x)))
+koszt <- df_ef_py$koszt$to_list()
+koszt <- sapply(koszt, function(x) as.numeric(py_str(x)))
+przychod <- df_ef_py$przychod$to_list()
+przychod <- sapply(przychod, function(x) as.numeric(py_str(x)))
+
+efektywnosc_top_3_r <- data.frame(
+  id_atrakcji = id_atrakcji,
+  nazwa_atrakcji = nazwa_atrakcji,
+  przychod = przychod,
+  koszt = koszt,
+  zysk = zysk
+)
+
+kable(efektywnosc_top_3_r, col.names = c("Id atrakcji", "Nazwa atrakcji", "Przychód","Koszt","Zysk"), caption = "Zestawienie przychodów, kosztów i zysków top 3 najbardziej efektywnych atrakcji.")
+
+```
+
+
+
+Najbardziej opłacalne atrakcje to: `r top_3_efektywne_nazwy_r`, a najmniej efektywne to: `r top_3_zle_nazwy_r`. Dla najbardziej efektywnych atrakcji w tabeli \@ref(tab:tab-efektywnosc) zostały podane ich przychody, koszty obsługi oraz zyski.
+
+
+
+# Zależnośc popularności atrakcji od sezonu.
+
+
+
+Wykres na rysunku \@ref(fig:atr-sezon-pop) przedstawia sezonową popularność atrakcji w naszym parku rozrywki. 
+
+
+```{python atr-sezon-pop, fig.cap = "Zależność popularności atrakcji od sezonu."}
+cursor.execute("""SELECT a.id_atrakcji, a.nazwa_atrakcji, MONTH(w.data_wizyty) AS miesiac, COUNT(*) AS liczba_wizyt
+FROM Atrakcje a
+JOIN Odwiedzone_atrakcje oa ON a.id_atrakcji = oa.id_atrakcji
+JOIN Wizyty w ON oa.id_wizyty = w.id_wizyty
+GROUP BY a.id_atrakcji, a.nazwa_atrakcji, MONTH(w.data_wizyty)
+ORDER BY a.id_atrakcji, miesiac;""")
+
+sezon_atrakcji = pd.DataFrame(cursor.fetchall(), columns=['id_atrakcji', 'nazwa_atrakcji', 'miesiac', 'liczba_wizyt'])
+
+pivot_sezon = sezon_atrakcji.pivot(index='nazwa_atrakcji', columns='miesiac', values='liczba_wizyt').fillna(0)
+
+top_dla_kazdej = pd.DataFrame({
+  "month" : pivot_sezon.idxmax(axis = 1),
+  "wizyty" : pivot_sezon.max(axis = 1)
+})
+top_dla_kazdej = top_dla_kazdej.reset_index()
+
+sum_all = pivot_sezon.sum(axis=0)
+max_msc = sum_all.idxmax()
+ile_max_msc = max(sum_all)
+
+min_msc = sum_all.idxmin()
+ile_min_msc = min(sum_all)
+
+
+plt.figure(figsize=(12,8))
+sns.heatmap(pivot_sezon, annot=True, fmt=".0f", cmap='YlOrRd', cbar_kws={'label': 'Liczba wizyt'})
+plt.xlabel('Miesiąc')
+plt.ylabel('Atrakcja')
+plt.title('Sezonowa popularność atrakcji (liczba wizyt w miesiącach)', fontsize = 16)
+plt.yticks(rotation=0) 
+plt.show()
+```
+
+```{r tabble-top-dla-atr, results='markup'}
+max_msc_r <- py_to_r(py$max_msc)
+ile_max_msc_r <- py_to_r(py$ile_max_msc)
+min_msc_r <- py_to_r(py$min_msc)
+ile_min_msc_r <- py_to_r(py$ile_min_msc)
+
+
+df_zad5_py <- py$top_dla_kazdej
+top_months_r <- data.frame(
+  df_zad5_py$values
+)
+colnames(top_months_r) <- df_zad5_py$columns$to_list()
+
+kable(top_months_r, col.names = c("Nazwa atrakcji","Miesiąc","Liczba wizyt"), caption = "Najlepszy miesiąc pod względem liczby wizyt dla poszczególnych atrakcji.")
+
+```
+
+
+Tabela \@ref(tab:tabble-top-dla-atr) pokazuje, w którym miesiącu poszczególne atrakcje były najczęściej odwiedzane. Ogólnie dla całego parku `r max_msc_r`. miesiąc charakteryzuje się rekordową liczbą wizyt (odnotowano `r ile_max_msc_r` wizyt). Najmniej wizyt (`r ile_min_msc_r` odwiedzin) było w `r min_msc_r`. miesiącu.
+
+
+
+# Wpływu wieku gości na wybór atrakcji i korzystanie z VR.
+
+
+Nasz park rozrywki, zarówno zdalnie, jak i fizycznie, odwiedzają osoby w różnych grupach wiekowych. Rysunek \@ref(fig:age-choice-dep) pokazuje, czy wiek gości wpływa na wybór formy atrakcji oraz korzystanie z VR.
+
+
+```{python age-choice-dep, fig.cap = "Podział na grupy wiekowe gości, korzystających z atrakcji VR."}
+cursor.execute("""SELECT CASE
+    WHEN TIMESTAMPDIFF(YEAR, g.data_urodzenia, CURDATE()) < 12 THEN 'Dzieci'
+    WHEN TIMESTAMPDIFF(YEAR, g.data_urodzenia, CURDATE()) BETWEEN 12 AND 17 THEN 'Młodzież'
+    WHEN TIMESTAMPDIFF(YEAR, g.data_urodzenia, CURDATE()) BETWEEN 18 AND 60 THEN 'Dorośli'
+    ELSE 'Seniorzy'
+END AS grupa_wiekowa,
+COUNT(*) AS liczba_wizyt,
+SUM(CASE WHEN oa.czy_vr = 1 THEN 1 ELSE 0 END) AS wizyty_vr
+FROM Goscie g
+JOIN Wizyty w ON g.id_goscia = w.id_goscia
+JOIN Odwiedzone_atrakcje oa ON w.id_wizyty = oa.id_wizyty
+GROUP BY grupa_wiekowa
+ORDER BY liczba_wizyt DESC;""")
+
+wiek_vr = pd.DataFrame(
+    cursor.fetchall(),
+    columns=['grupa_wiekowa', 'liczba_wizyt', 'wizyty_vr']
+)
+
+wiek_vr['procent_vr'] = (wiek_vr['wizyty_vr'] / wiek_vr['liczba_wizyt']) * 100
+
+max_procent = wiek_vr.loc[wiek_vr['procent_vr'].idxmax()]
+max_procent_nazwy = max_procent['grupa_wiekowa']
+max_procent_ile = max_procent['procent_vr']
+
+min_procent = wiek_vr.loc[wiek_vr['procent_vr'].idxmin()]
+min_procent_nazwy = min_procent['grupa_wiekowa']
+min_procent_ile = min_procent['procent_vr']
+
+
+x = np.arange(len(wiek_vr))
+width = 0.35
+
+plt.figure(figsize=(10,6))
+plt.bar(x - width/2, wiek_vr['liczba_wizyt'], width, label='Wszystkie wizyty', color = 'skyblue')
+plt.bar(x + width/2, wiek_vr['wizyty_vr'], width, label='Wizyty VR', color = "salmon")
+
+plt.xticks(x, wiek_vr['grupa_wiekowa'])
+plt.xlabel('Grupa wiekowa')
+plt.ylabel('Liczba wizyt')
+plt.title('Korzystanie z atrakcji VR według grup wiekowych', fontsize = 16)
+plt.legend()
+plt.grid(axis='y', linestyle='--', alpha=0.6)
+plt.tight_layout()
+plt.show()
+```
+
+```{r}
+max_procent_r_nazwy <- py_to_r(py$max_procent_nazwy)
+max_procent_r_ile <- py_to_r(py$max_procent_ile)
+max_procent_r_ile <- round(as.numeric(py_str(max_procent_r_ile)), digits = 2)
+
+min_procent_r_nazwy <- py_to_r(py$min_procent_nazwy)
+min_procent_r_ile <- py_to_r(py$min_procent_ile)
+min_procent_r_ile <- round(as.numeric(py_str(min_procent_r_ile)), digits = 2)
+
+```
+
+
+Łososiowe słupki przedstawiają liczbę wizyt VR w poszczególnych grupach wiekowych. Procentowo najwięcej wizyt VR odnotowano w grupie wiekowej `r max_procent_r_nazwy`, gdzie wizyty VR stanowią około `r paste0(max_procent_r_ile, "%")` wszystkich wizyt w tej grupie. Najmniejszy udział procentowy zaobserwowano w grupie wiekowej `r min_procent_r_nazwy` i wynosi on około `r paste0(min_procent_r_ile, "%")`.
+
+
+# Analiza stosunku kosztów utrzymania atrakcji do ich popularności wśród odwiedzających.
+
+
+
+Rysunek \@ref(fig:koszty-do-pop) przedstawia wyniki analizy zaleności między kosztami utrzymania atrakcji a ich popularnością wśród odwiedzających.
+Z wykresu można odczytać najdroższą i najtańszą atrakcje pod względem kosztów obsługi i liczby ich odwiedzin.
+
+```{python koszty-do-pop, fig.cap = "Stosunek kosztów utrzymania atrakcji do ich popularności wśród odwiedzających."}
+cursor.execute("""SELECT p.id_atrakcji, p.nazwa_atrakcji, p.liczba_odwiedzin, k.koszt_utrzymania, k.koszt_utrzymania / p.liczba_odwiedzin AS koszt_na_wizyte
+FROM (
+    SELECT 
+        a.id_atrakcji,
+        a.nazwa_atrakcji,
+        COUNT(*) AS liczba_odwiedzin
+    FROM Atrakcje a
+    JOIN Odwiedzone_atrakcje oa ON a.id_atrakcji = oa.id_atrakcji
+    GROUP BY a.id_atrakcji, a.nazwa_atrakcji
+) p
+JOIN (
+    SELECT 
+        a.id_atrakcji,
+        SUM(wy.wynagrodzenie) AS koszt_utrzymania
+    FROM Atrakcje a
+    JOIN Obsluga_atrakcji oa ON a.id_atrakcji = oa.id_atrakcji
+    JOIN Wynagrodzenia wy ON oa.id_stanowiska = wy.id_stanowiska
+    GROUP BY a.id_atrakcji
+) k ON p.id_atrakcji = k.id_atrakcji;""")
+
+koszt_popularnosc = pd.DataFrame(cursor.fetchall(), columns=['id_atrakcji', 'nazwa_atrakcji', 'liczba_odwiedzin', 'koszt_utrzymania', 'koszt_na_wizyte'])
+najdrozsza = koszt_popularnosc.loc[koszt_popularnosc['koszt_utrzymania'].idxmax()]
+najdrozsza_nazwa = najdrozsza['nazwa_atrakcji']
+pop_najdrozsza = najdrozsza['liczba_odwiedzin']
+koszt_najdrozsza = najdrozsza['koszt_utrzymania']
+sr_dr = najdrozsza['koszt_na_wizyte']
+
+najtansza = koszt_popularnosc.loc[koszt_popularnosc['koszt_utrzymania'].idxmin()]
+najtansza_nazwa = najtansza['nazwa_atrakcji']
+pop_najtansza = najtansza['liczba_odwiedzin']
+koszt_najtansza = najtansza['koszt_utrzymania']
+sr_tan = najtansza['koszt_na_wizyte']
+
+plt.figure(figsize=(13,8))
+plt.scatter(
+    koszt_popularnosc['liczba_odwiedzin'],
+    koszt_popularnosc['koszt_utrzymania'],
+    s=80,
+    alpha=0.7
+)
+
+for _, row in koszt_popularnosc.iterrows():
+    plt.text(
+        row['liczba_odwiedzin'] + 0.5,
+        row['koszt_utrzymania'],
+        row['nazwa_atrakcji'],
+        fontsize=10
+    )
+
+
+plt.xlabel('Liczba odwiedzin (popularność)')
+plt.ylabel('Koszt utrzymania')
+plt.title('Koszt utrzymania atrakcji a ich popularność', fontsize = 16)
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
+```
+
+```{r koszty-do-pop-tablel, results='markup'}
+najdrozsza_nazwa_r <- py_to_r(py$najdrozsza_nazwa)
+najdrozsza_pop_r <- py_to_r(py$pop_najdrozsza)
+najdrozsza_koszt_r <- as.numeric(py_str(py_to_r(py$koszt_najdrozsza)))
+najdrozsza_koszt_na_wizyte_r <- round(as.numeric(py_str(py_to_r(py$sr_dr))), digits = 2)
+
+najtansza_nazwa_r <- py_to_r(py$najtansza_nazwa)
+najtansza_pop_r <- py_to_r(py$pop_najtansza)
+najtansza_koszt_r <- as.numeric(py_str(py_to_r(py$koszt_najtansza)))
+najtansza_koszt_na_wizyte_r <- round(as.numeric(py_str(py_to_r(py$sr_tan))), digits = 2)
+
+n <- c("Najdroższa", "Najtańsza")
+
+kable(cbind(n, c(najdrozsza_nazwa_r, najtansza_nazwa_r), c(najdrozsza_pop_r, najtansza_pop_r), c(najdrozsza_koszt_r, najtansza_koszt_r)), col.names = c("Skrajne wartości", "Nazwa atrakcji", "Liczba odwiedzin", "Koszt obsługi"), caption = "Porównanie statystyk dla najdroższej i najtańszej w utrzymaniu atrakcji.")
+
+```
+
+
+Najbardziej kosztowna w obsłudze atrakcja w naszym parku to `r najdrozsza_nazwa_r`, ze średnim kosztem na wizytę równym `r najdrozsza_koszt_na_wizyte_r`. Z kolei najtańsza w utrzymaniu atrakcja to `r najtansza_nazwa_r`, której średni koszt na wizytę wynosi `r najtansza_koszt_na_wizyte_r`. W tabeli \@ref(tab:koszty-do-pop-tablel) są zamieszczone dodatkowe statystyki dotyczące tych dwóch atrakcji. 
+
+
+
+# Porównanie poziomu przychodów gości korzystających z atrakcji VR na tle pozostałych odwiedzających.
+
+
+Po poprzedniej pandemii w naszym parku rozrywki została dodana możliwość uczestniczyć w atrakcjach zdalnie, poprzez VR. Rysunek \@ref(fig:vr-vs-inni) przedstawia zestawienie średnich przychodów zwykłych atrakcji oraz otrakcji używających VR.
+
+
+```{python vr-vs-inni, fig.cap = "Porównanie przychodu przez gości korzystających z VR oraz zwykłych atrakcji."}
+cursor.execute("""SELECT 
+    CASE WHEN oa.czy_vr = 1 THEN 'VR' ELSE 'Non-VR' END AS typ_atrakcji,
+    COUNT(*) AS liczba_wizyt,
+    SUM(t.kwota) AS laczny_przychod,
+    AVG(t.kwota) AS sredni_przychod_na_wizyte
+FROM Odwiedzone_atrakcje oa
+JOIN Wizyty w ON oa.id_wizyty = w.id_wizyty
+JOIN Transakcje t ON w.id_transakcji = t.id_transakcji
+GROUP BY typ_atrakcji;""")
+
+przychod_vr = pd.DataFrame(cursor.fetchall(), columns=['typ_atrakcji', 'liczba_wizyt', 'laczny_przychod', 'sredni_przychod_na_wizyte'])
+
+ktory_wiekszy = przychod_vr.loc[przychod_vr['sredni_przychod_na_wizyte'].idxmax()]
+nazwa_ktory_wiekszy = ktory_wiekszy['typ_atrakcji']
+srednia_ktory_wiekszy = ktory_wiekszy['sredni_przychod_na_wizyte']
+
+
+plt.bar(
+    przychod_vr['typ_atrakcji'],
+    przychod_vr['sredni_przychod_na_wizyte'],
+    color=['skyblue', 'salmon']
+)
+plt.ylabel('Średni przychód na wizytę')
+plt.xlabel('Typ atrakcji')
+plt.title('Porównanie średniego przychodu: VR vs Non-VR')
+plt.grid(axis='y', linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
+```
+```{r}
+wiekszy_r_nazwa <- py_to_r(py$nazwa_ktory_wiekszy)
+wiekszy_r_srednia <- py_to_r(py$srednia_ktory_wiekszy)
+wiekszy_r_srednia <- as.numeric(py_str(wiekszy_r_srednia))
+```
+
+
+Łatwo odczytać z wykresu, że atrakcje typu `r wiekszy_r_nazwa` mają wyższą średnią przychodów, która wynosi `r wiekszy_r_srednia`.
+
+
+
+# Najczęściej sprzedawane rodzaje biletów.
+
+
+```{python bilety-freq, fig.cap = "Top 10 najpopularniejszych rodzajów biletów."}
+cursor.execute("""SELECT b.rodzaj_biletu, COUNT(*) AS liczba_sprzedanych
+FROM Bilety b
+JOIN Wizyty w ON b.id_biletu = w.id_biletu
+GROUP BY b.rodzaj_biletu
+ORDER BY liczba_sprzedanych DESC LIMIT 10;""")
+
+bilety_rodzaje = pd.DataFrame(cursor.fetchall(), columns=['rodzaj_biletu', 'liczba_sprzedanych'])
+top_bilety_rodzaje = bilety_rodzaje.head(3)
+top_bilety_rodzaje_nazwy = top_bilety_rodzaje['rodzaj_biletu'].tolist()
+
+plt.figure(figsize=(8,6))
+plt.bar(
+    bilety_rodzaje['rodzaj_biletu'],
+    bilety_rodzaje['liczba_sprzedanych'],
+    color='skyblue'
+)
+plt.yscale('log')
+plt.xlabel('Rodzaj biletu')
+plt.ylabel('Liczba sprzedanych biletów\n(skala logarytmiczna)')
+plt.title('Najczęściej sprzedawane rodzaje biletów', fontsize = 16)
+plt.grid(axis='y', linestyle='--', alpha=0.5)
+plt.xticks(rotation=45, ha='right')
+plt.tight_layout()
+plt.show()
+```
+```{r bilety-table, results='markup'}
+top_bilety_rodzaje_nazwy_r <- py_to_r(py$top_bilety_rodzaje_nazwy)
+
+
+df_zad9_py <- py$top_bilety_rodzaje
+bilety_r <- data.frame(
+  df_zad9_py$values
+)
+colnames(bilety_r) <- df_zad9_py$columns$to_list()
+
+#bilety_r$rodzaj_biletu <- as.integer(bilety_r$id_atrakcji)
+#bilety_r$liczba_sprzedanych <- sapply(bilety_r$liczba_sprzedanych, function(x) as.numeric(py_str(x)))
+
+kable(bilety_r, col.names = c("Rodzaj biletu","Liczba sprzedanych"), caption = "Liczba sprzedanych biletów dla najpopularniejszych rodzajów.")
+
+```
+
+
+Rysunek \@ref(fig:bilety-freq) ilustruje, jakie rodzaje biletów są najczęściej sprzedawane w naszym parku rozrywki.
+Łatwo widać, że do najpopularniejszych biletów należą rodzaje `r top_bilety_rodzaje_nazwy_r`. Liczby sprzedanych biletów dla tych 3 rodzajów przedstawiono w tabeli \@ref(tab:bilety-table).
+
+
+
+# Atrakcje o największej liczbie gości i najmniejszej liczbie awarii.
+
+
+```{python pop-no-awarie, fig.cap = "Porównanie poziomu popularności atrakcji do ich niezawodności."}
+cursor.execute("""SELECT p.id_atrakcji, p.nazwa_atrakcji, p.liczba_odwiedzin, k.dni_niedostepnosci
+FROM (
+    SELECT 
+        a.id_atrakcji,
+        a.nazwa_atrakcji,
+        COUNT(oa.id_wizyty) AS liczba_odwiedzin
+    FROM Atrakcje a
+    LEFT JOIN Odwiedzone_atrakcje oa ON a.id_atrakcji = oa.id_atrakcji
+    GROUP BY a.id_atrakcji, a.nazwa_atrakcji
+) p
+JOIN (
+    SELECT 
+        a.id_atrakcji,
+        COALESCE(SUM(DATEDIFF(IFNULL(aw.data_zakonczenia_naprawy, CURDATE()), aw.data_zgloszenia)), 0) AS dni_niedostepnosci
+    FROM Atrakcje a
+    LEFT JOIN Awarie aw ON a.id_atrakcji = aw.id_atrakcji
+    GROUP BY a.id_atrakcji
+) k ON p.id_atrakcji = k.id_atrakcji;""")
+
+atrakcje_bezpieczne = pd.DataFrame(cursor.fetchall(), columns=['id_atrakcji', 'nazwa_atrakcji', 'liczba_odwiedzin', 'dni_niedostepnosci'])
+top_zad11 = atrakcje_bezpieczne.sort_values(by=['liczba_odwiedzin', 'dni_niedostepnosci'], ascending=[False, True]).head(5)
+top_zad11_nazwy = top_zad11['nazwa_atrakcji'].tolist()
+
+plt.figure(figsize=(16,8))
+plt.scatter(
+    atrakcje_bezpieczne['liczba_odwiedzin'],
+    atrakcje_bezpieczne['dni_niedostepnosci'],
+    s=100,
+    alpha=0.7,
+    color='salmon'
+)
+
+for _, row in atrakcje_bezpieczne.iterrows():
+    plt.text(
+        row['liczba_odwiedzin'] + 0.5,
+        row['dni_niedostepnosci'],
+        row['nazwa_atrakcji'],
+        fontsize=10
+    )
+
+plt.xlabel('Liczba odwiedzin')
+plt.ylabel('Dni niedostępności (awarie)')
+plt.title('Popularność atrakcji vs niezawodność (dni niedostępności)', fontsize = 16)
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
+
+```
+```{r}
+top_zad11_nazwy_r <- py_to_r(py$top_zad11_nazwy)
+```
+
+
+Na rysunku \@ref(fig:pop-no-awarie) są zaprezentowane atrakcje o największej liczbie gości i najmniejszej liczbie awarii. Top 5 takich atrakcji to `r top_zad11_nazwy_r`.
+
+
+
+```{python end-laczenie, include = FALSE}
+cursor.close()
+con.close()
+```
