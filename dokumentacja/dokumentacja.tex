@@ -17,6 +17,7 @@
 Dokumentacja ma za zadanie przedstawić aspekty projektu z Baz Danych. Projekt miał na celu stworzenie, wypełnienie, przeanalizowanie i stworzenie raportu z bazy danych do nowoczesnego parku rozrywki AiBtcQuantLandia. Baza zawiera m.in informacje o pracownikach, atrakcjach, awariach, gościach i ich wizytach, transkacjach, biletach, zdarzeniach i ubezpieczeniach od nich.
 \section{\LARGE Spis użytych technologii}
 Do projektu użyto następujących technologii:
+\label{sec:technologie}
 \begin{itemize}
     \item ERD Editor v2.1.0 - stworzenie schematu bazy danych.
     \item Biblioteki Pythona:
@@ -61,7 +62,7 @@ Do projektu użyto następujących technologii:
     \end{enumerate}
 \end{itemize}
 \section{\LARGE Kolejność i sposób uruchamiania plików}
-Projekt był testowany na Pythonie 3.12, R 4.5. wymaga również LaTeXa i środowisk umożliwiająych włączanie i kompilacje plików, oraz zainstalowanych bibliotek z Spisu użytych technologii.
+Projekt był testowany na Pythonie 3.12, R 4.5. wymaga również LaTeXa i środowisk umożliwiająych włączanie i kompilacje plików, oraz zainstalowanych bibliotek z \ref{sec:technologie}. \newline
 Do wyboru mamy następujące możliwości:
 \begin{enumerate}
 \item Jeśli chcemy jedynie zobaczyć raport, to uruchamiamy raportAUTO.pdf
@@ -200,7 +201,7 @@ Do wyboru mamy następujące możliwości:
 Baza danych jest w EKNF, ponieważ
 \begin{enumerate}
     \item Spełnia założenia 1NF - wiersze się nie powtarzają, oraz atrybuty są elementarne (atomowe, niepodzielne).
-    \item Spełnia założenia 2NF - Wszystkie atrybuty niekluczowe są w pełni zależne funkcyjnie od całego klucza głównego.
+    \item Spełnia założenia 2NF - wszystkie atrybuty niekluczowe są w pełni zależne funkcyjnie od całego klucza głównego.
     \item Spełnia założenia 3NF - atrybuty niekluczowe nie są zależne funkcyjnie od innych atrybutów niekluczowych, nie ma zależności przechodnich.
     \item Spełnia założenia EKNF - każda nietrywialna zależność funkcyjna zaczyna się od nadklucza, albo kończy się na atrybucie elementarnym.
 \end{enumerate}
